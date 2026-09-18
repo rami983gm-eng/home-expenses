@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#1f6feb">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<title>مصروفات المنزل</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:#f5f7fa;color:#17202a}
+header{background:#1f6feb;color:white;padding:18px 16px 20px;position:sticky;top:0;z-index:5}
+h1{font-size:22px;margin:0 0 4px}.sub{opacity:.85;font-size:13px}
+.container{max-width:700px;margin:auto;padding:14px 14px 90px}
+.card{background:white;border-radius:16px;padding:15px;margin-bottom:13px;box-shadow:0 2px 10px #0000000b}
+.monthbar{display:flex;align-items:center;justify-content:space-between;gap:8px}.monthbar button{width:42px}
+.total{font-size:28px;font-weight:700;margin:12px 0 4px}.muted{color:#697586;font-size:13px}
+.row{display:flex;justify-content:space-between;gap:10px;padding:11px 0;border-bottom:1px solid #edf0f3}.row:last-child{border:0}
+.pill{background:#eef5ff;color:#1f6feb;padding:5px 9px;border-radius:20px;font-size:12px}
+.actions{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}
+button,.btn{border:0;border-radius:11px;padding:12px 10px;background:#1f6feb;color:white;font-weight:600;font-size:14px;cursor:pointer}
+button.secondary,.btn.secondary{background:#eef1f5;color:#253142}button.danger{background:#d92d20}
+input,select,textarea{width:100%;padding:12px;border:1px solid #d8dee7;border-radius:10px;font-size:15px;background:white}
+label{display:block;font-size:13px;font-weight:700;margin:12px 0 6px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+nav{position:fixed;bottom:0;left:0;right:0;background:white;border-top:1px solid #e4e8ee;display:flex;justify-content:center;z-index:10}
+nav button{background:white;color:#566273;border-radius:0;flex:1;max-width:175px;padding:10px 5px;font-size:12px}nav button.active{color:#1f6feb}
+.hidden{display:none!important}.center{text-align:center}.empty{padding:28px;color:#778294}
+.small{font-size:12px}.expense{display:flex;justify-content:space-between;align-items:center}.expense .amount{font-weight:700}
+.toast{position:fixed;bottom:72px;left:50%;transform:translateX(-50%);background:#17202a;color:white;padding:10px 16px;border-radius:10px;display:none;z-index:20}
+.reportbox{white-space:pre-wrap;background:#f8fafc;padding:12px;border-radius:10px;font-size:13px}
+@media(max-width:430px){.actions{grid-template-columns:1fr 1fr}.actions button:last-child{grid-column:1/-1}}
+</style>
+</head>
+<body>
+<header><h1 id="appTitle">مصروفات المنزل</h1><div class="sub" id="appSub">إدارة بسيطة لمصاريف المنزل</div></header>
+<main class="container">
+<section id="home"></section>
+<section id="add" class="hidden"></section>
+<section id="list" class="hidden"></section>
+<section id="reports" class="hidden"></section>
+<section id="settings" class="hidden"></section>
+</main>
+<nav>
+<button data-page="home" onclick="showPage('home')">🏠<br><span data-ar="الرئيسية" data-en="Home">الرئيسية</span></button>
+<button data-page="add" onclick="showPage('add')">➕<br><span data-ar="إضافة" data-en="Add">إضافة</span></button>
+<button data-page="list" onclick="showPage('list')">🧾<br><span data-ar="المشتريات" data-en="Expenses">المشتريات</span></button>
+<button data-page="reports" onclick="showPage('reports')">📄<br><span data-ar="كشوفات" data-en="Reports">كشوفات</span></button>
+<button data-page="settings" onclick="showPage('settings')">⚙️<br><span data-ar="الإعدادات" data-en="Settings">الإعدادات</span></button>
+</nav>
+<div id="toast" class="toast"></div>
+<script>
+const KEY='homeExpenses_v1', CAT='homeExpenseCategories_v1', LANG='homeExpenseLang_v1';
+let expenses=JSON.parse(localStorage.getItem(KEY)||'[]');
+let categories=JSON.parse(localStorage.getItem(CAT)||'["مواد غذائية","لحمة ودجاج","مطاعم","متفرقات"]');
+let lang=localStorage.getItem(LANG)||'ar', editId=null, currentMonth=new Date(new Date().getFullYear(),new Date().getMonth(),1);
+
+const T={ar:{title:"مصروفات المنزل",sub:"إدارة بسيطة لمصاريف المنزل",total:"إجمالي الشهر",add:"إضافة مشتريات",edit:"تعديل مشتريات",reports:"كشوفات",settings:"الإعدادات",type:"نوع المصروف",date:"التاريخ",amount:"المبلغ",notes:"ملاحظات",save:"حفظ",cancel:"إلغاء",search:"بحث",sort:"فرز",byDate:"التاريخ",byType:"الصنف",byAmount:"المبلغ",month:"الشهر",from:"من",to:"إلى",reportType:"نوع الكشف",all:"الكل",pdf:"PDF",jpg:"JPG",language:"اللغة",manage:"إدارة المصروف",share:"مشاركة",backup:"النسخ الاحتياطي",restore:"استعادة البيانات",addCat:"إضافة بند",newCat:"اسم البند الجديد",no:"لا توجد مصروفات",delete:"حذف",confirm:"هل تريد حذف هذه العملية؟",saved:"تم الحفظ",deleted:"تم الحذف",bad:"أدخل المبلغ",currency:"درهم",totalAll:"الإجمالي",operations:"عملية",data:"البيانات",expense:"المصروف",generate:"إنشاء الكشف",shareText:"مشاركة الكشف",backupDone:"تم تجهيز ملف النسخة الاحتياطية",catExists:"البند موجود مسبقاً",catAdded:"تمت إضافة البند",catDeleted:"تم حذف البند"},en:{title:"Home Expenses",sub:"Simple household expense manager",total:"Monthly total",add:"Add Expense",edit:"Edit Expenses",reports:"Reports",settings:"Settings",type:"Expense type",date:"Date",amount:"Amount",notes:"Notes",save:"Save",cancel:"Cancel",search:"Search",sort:"Sort",byDate:"Date",byType:"Category",byAmount:"Amount",month:"Month",from:"From",to:"To",reportType:"Report type",all:"All",pdf:"PDF",jpg:"JPG",language:"Language",manage:"Manage Categories",share:"Share",backup:"Backup",restore:"Restore data",addCat:"Add category",newCat:"New category name",no:"No expenses",delete:"Delete",confirm:"Delete this expense?",saved:"Saved",deleted:"Deleted",bad:"Enter an amount",currency:"AED",totalAll:"Total",operations:"operations",data:"Data",expense:"Expense",generate:"Generate report",shareText:"Share report",backupDone:"Backup file ready",catExists:"Category already exists",catAdded:"Category added",catDeleted:"Category deleted"}};
+function t(k){return T[lang][k]||k}
+function save(){localStorage.setItem(KEY,JSON.stringify(expenses));localStorage.setItem(CAT,JSON.stringify(categories));localStorage.setItem(LANG,lang)}
+function money(n){return Number(n).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})+' '+t('currency')}
+function fmt(d){return new Date(d+'T00:00:00').toLocaleDateString(lang==='ar'?'ar-AE':'en-GB')}
+function monthLabel(d){return d.toLocaleDateString(lang==='ar'?'ar-AE':'en-US',{month:'long',year:'numeric'})}
+function toast(s){let x=document.getElementById('toast');x.textContent=s;x.style.display='block';setTimeout(()=>x.style.display='none',1800)}
+function showPage(p){['home','add','list','reports','settings'].forEach(x=>document.getElementById(x).classList.toggle('hidden',x!==p));document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active',b.dataset.page===p));render(p)}
+function render(p){
+ document.documentElement.lang=lang;document.documentElement.dir=lang==='ar'?'rtl':'ltr';
+ document.getElementById('appTitle').textContent=t('title');document.getElementById('appSub').textContent=t('sub');
+ document.querySelectorAll('[data-ar]').forEach(e=>e.textContent=e.getAttribute('data-'+lang));
+ if(p==='home')renderHome(); if(p==='add')renderAdd(); if(p==='list')renderList(); if(p==='reports')renderReports(); if(p==='settings')renderSettings();
+}
+function monthExpenses(){return expenses.filter(e=>{let d=new Date(e.date+'T00:00:00');return d.getFullYear()===currentMonth.getFullYear()&&d.getMonth()===currentMonth.getMonth()})}
+function renderHome(){
+ let es=monthExpenses(), total=es.reduce((a,e)=>a+Number(e.amount),0);
+ let sums={};categories.forEach(c=>sums[c]=0);es.forEach(e=>sums[e.type]=(sums[e.type]||0)+Number(e.amount));
+ document.getElementById('home').innerHTML=`<div class="card"><div class="monthbar"><button class="secondary" onclick="changeMonth(-1)">‹</button><strong>${monthLabel(currentMonth)}</strong><button class="secondary" onclick="changeMonth(1)">›</button></div><div class="total">${money(total)}</div><div class="muted">${t('total')}</div>${categories.map(c=>`<div class="row"><span>${esc(c)}</span><strong>${money(sums[c]||0)}</strong></div>`).join('')}</div>
+ <div class="actions"><button onclick="showPage('add')">➕ ${t('add')}</button><button class="secondary" onclick="showPage('list')">✏️ ${t('edit')}</button><button class="secondary" onclick="showPage('reports')">📄 ${t('reports')}</button></div>`;
+}
+function changeMonth(n){currentMonth=new Date(currentMonth.getFullYear(),currentMonth.getMonth()+n,1);renderHome()}
+function renderAdd(){
+ let e=editId?expenses.find(x=>x.id===editId):null, today=e?.date||new Date().toISOString().slice(0,10);
+ document.getElementById('add').innerHTML=`<div class="card"><h2>${e?t('edit'):t('add')}</h2><label>${t('type')}</label><select id="atype">${categories.map(c=>`<option ${e&&e.type===c?'selected':''}>${esc(c)}</option>`).join('')}</select><label>${t('date')}</label><input id="adate" type="date" value="${today}"><label>${t('amount')}</label><input id="aamount" type="number" inputmode="decimal" step="0.01" min="0" value="${e?e.amount:''}" placeholder="0.00"><label>${t('notes')}</label><textarea id="anotes" rows="3">${e?esc(e.notes||''):''}</textarea><br><button onclick="saveExpense()">${t('save')}</button> ${e?`<button class="secondary" onclick="editId=null;showPage('add')">${t('cancel')}</button>`:''}</div>`;
+}
+function saveExpense(){let amount=Number(document.getElementById('aamount').value);if(!amount){toast(t('bad'));return}let obj={id:editId||Date.now().toString(),type:document.getElementById('atype').value,date:document.getElementById('adate').value,amount,notes:document.getElementById('anotes').value};let i=expenses.findIndex(x=>x.id===obj.id);if(i>=0)expenses[i]=obj;else expenses.push(obj);editId=null;save();toast(t('saved'));showPage('home')}
+function renderList(){
+ document.getElementById('list').innerHTML=`<div class="card"><h2>${t('edit')}</h2><input id="lsearch" placeholder="${t('search')}" oninput="renderListItems()"><div class="grid2"><select id="lsort" onchange="renderListItems()"><option value="date">${t('byDate')}</option><option value="type">${t('byType')}</option><option value="amount">${t('byAmount')}</option></select><select id="lorder" onchange="renderListItems()"><option value="desc">↓</option><option value="asc">↑</option></select></div></div><div id="listItems"></div>`;renderListItems()
+}
+function renderListItems(){let q=(document.getElementById('lsearch')?.value||'').toLowerCase(), sort=document.getElementById('lsort')?.value||'date', order=document.getElementById('lorder')?.value||'desc';let es=expenses.filter(e=>(e.type+' '+e.notes+' '+e.amount).toLowerCase().includes(q));es.sort((a,b)=>{let x=sort==='date'?a.date:sort==='type'?a.type:Number(a.amount),y=sort==='date'?b.date:sort==='type'?b.type:Number(b.amount);return (x>y?1:x<y?-1:0)*(order==='asc'?1:-1)});document.getElementById('listItems').innerHTML=es.length?es.map(e=>`<div class="card expense"><div><strong>${esc(e.type)}</strong><div class="muted">${fmt(e.date)} ${e.notes?'• '+esc(e.notes):''}</div></div><div class="center"><div class="amount">${money(e.amount)}</div><button class="secondary small" onclick="startEdit('${e.id}')">✏️</button> <button class="danger small" onclick="delExpense('${e.id}')">🗑️</button></div></div>`).join(''):`<div class="card empty center">${t('no')}</div>`}
+function startEdit(id){editId=id;showPage('add')}
+function delExpense(id){if(confirm(t('confirm'))){expenses=expenses.filter(e=>e.id!==id);save();toast(t('deleted'));renderListItems()}}
+function renderReports(){let today=new Date().toISOString().slice(0,10), first=new Date(new Date().getFullYear(),new Date().getMonth(),1).toISOString().slice(0,10);document.getElementById('reports').innerHTML=`<div class="card"><h2>${t('reports')}</h2><div class="grid2"><div><label>${t('from')}</label><input id="rfrom" type="date" value="${first}"></div><div><label>${t('to')}</label><input id="rto" type="date" value="${today}"></div></div><label>${t('type')}</label><select id="rtype"><option value="">${t('all')}</option>${categories.map(c=>`<option>${esc(c)}</option>`).join('')}</select><br><br><button onclick="makeReport('pdf')">${t('pdf')}</button> <button class="secondary" onclick="makeReport('jpg')">${t('jpg')}</button> <button class="secondary" onclick="shareReport()">${t('shareText')}</button></div><div id="reportPreview"></div>`}
+function filteredReport(){let a=document.getElementById('rfrom').value,b=document.getElementById('rto').value,c=document.getElementById('rtype').value;return expenses.filter(e=>e.date>=a&&e.date<=b&&(!c||e.type===c)).sort((x,y)=>x.date.localeCompare(y.date))}
+function reportText(){let es=filteredReport(), total=es.reduce((a,e)=>a+Number(e.amount),0), lines=[t('title'),`${t('from')}: ${document.getElementById('rfrom').value}   ${t('to')}: ${document.getElementById('rto').value}`,`${t('totalAll')}: ${money(total)}`,''];es.forEach((e,i)=>lines.push(`${i+1}. ${fmt(e.date)} | ${e.type} | ${money(e.amount)}${e.notes?' | '+e.notes:''}`));return lines.join('\\n')}
+function makeReport(kind){let text=reportText();document.getElementById('reportPreview').innerHTML=`<div class="card reportbox">${esc(text)}</div>`;if(kind==='pdf'){let w=window.open('','_blank');w.document.write('<html><head><title>'+t('reports')+'</title><style>body{font-family:Arial;white-space:pre-wrap;padding:30px}</style></head><body>'+esc(text).replace(/\\n/g,'<br>')+'</body></html>');w.document.close();w.print()}else{let c=document.createElement('canvas'),ctx=c.getContext('2d'),lines=text.split('\\n'),lh=28;c.width=1200;c.height=Math.max(400,lines.length*lh+60);ctx.fillStyle='white';ctx.fillRect(0,0,c.width,c.height);ctx.fillStyle='#17202a';ctx.font='22px Arial';lines.forEach((l,i)=>ctx.fillText(l,40,45+i*lh));let a=document.createElement('a');a.download='home-expenses-report.jpg';a.href=c.toDataURL('image/jpeg',.92);a.click()}}
+async function shareReport(){let text=reportText();if(navigator.share){try{await navigator.share({title:t('reports'),text})}catch(e){}}else toast(t('share')+' unavailable')}
+function renderSettings(){document.getElementById('settings').innerHTML=`<div class="card"><h2>${t('settings')}</h2><label>${t('language')}</label><select onchange="setLang(this.value)"><option value="ar" ${lang==='ar'?'selected':''}>العربية</option><option value="en" ${lang==='en'?'selected':''}>English</option></select></div><div class="card"><h2>${t('manage')}</h2><div>${categories.map((c,i)=>`<div class="row"><span>${esc(c)}</span><button class="danger small" onclick="delCat(${i})">🗑️</button></div>`).join('')}</div><br><input id="newcat" placeholder="${t('newCat')}"><br><br><button onclick="addCat()">${t('addCat')}</button></div><div class="card"><h2>${t('data')}</h2><button onclick="backup()">${t('backup')}</button> <label class="btn secondary" style="display:inline-block;text-align:center"> ${t('restore')} <input type="file" accept=".json" hidden onchange="restore(this.files[0])"></label></div>`}
+function setLang(v){lang=v;save();showPage('settings')}
+function addCat(){let v=document.getElementById('newcat').value.trim();if(!v)return;if(categories.includes(v)){toast(t('catExists'));return}categories.push(v);save();toast(t('catAdded'));renderSettings()}
+function delCat(i){let c=categories[i];if(expenses.some(e=>e.type===c)){toast(lang==='ar'?'لا يمكن حذف بند مستخدم':'Cannot delete a category in use');return}categories.splice(i,1);save();toast(t('catDeleted'));renderSettings()}
+function backup(){let blob=new Blob([JSON.stringify({version:1,expenses,categories},null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='home-expenses-backup.json';a.click();toast(t('backupDone'))}
+function restore(file){if(!file)return;let r=new FileReader();r.onload=()=>{try{let d=JSON.parse(r.result);expenses=d.expenses||[];categories=d.categories||categories;save();toast(t('saved'));renderSettings()}catch(e){alert('Invalid backup')}};r.readAsText(file)}
+function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
+render('home');
+</script>
+<script>
+if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+  navigator.serviceWorker.register('./sw.js').catch(()=>{});
+}
+</script>
+</body>
+</html>
